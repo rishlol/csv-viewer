@@ -64,12 +64,22 @@ function processFile(file: File) {
 function renderTable(filename: string, rows: unknown[][]) {
   headers = rows[0] as string[]
   allRows = rows.slice(1)
+
+  // Default column width of 150
   colWidths = new Array(headers.length).fill(150)
 
+  /* Create the <colgroup>
+   * Each column is its own group
+   * Allows each column to adjust its own width
+  */
   const colgroup = headers
     .map((_, i) => `<col id="col-${i}" style="width:${colWidths[i]}px">`)
     .join('')
 
+  /* Create table headers
+   * Header names in <span> elements
+   * Add <div> elements for resizing
+  */
   const ths = headers
     .map((h, i) => `
       <th>
@@ -78,6 +88,7 @@ function renderTable(filename: string, rows: unknown[][]) {
       </th>`)
     .join('')
 
+  // Load table (headers) in "output" <div>
   output.innerHTML = `
     <div class="table-meta">
       <span class="filename">${escapeHtml(filename)}</span>
@@ -118,13 +129,14 @@ function updateVisibleRows() {
   const bottomSpacer = document.getElementById('bottom-spacer')
   if (!tableScroll || !tbody || !topSpacer || !bottomSpacer) return
 
+  // Figure out which rows should be visible
   const scrollTop = tableScroll.scrollTop
   const containerHeight = tableScroll.clientHeight
-
   const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN)
   const visibleCount = Math.ceil(containerHeight / ROW_HEIGHT)
   const endIndex = Math.min(allRows.length, startIndex + visibleCount + OVERSCAN * 2)
 
+  // Resize spacers (empty <tr> elements for taking up vertical space)
   const topTd = topSpacer.querySelector('td') as HTMLTableCellElement
   const bottomTd = bottomSpacer.querySelector('td') as HTMLTableCellElement
   topTd.style.height = startIndex > 0 ? `${startIndex * ROW_HEIGHT}px` : ''
@@ -132,15 +144,14 @@ function updateVisibleRows() {
     ? `${(allRows.length - endIndex) * ROW_HEIGHT}px`
     : ''
 
-  // Replace only the data rows between the two spacers
-  tbody.querySelectorAll('tr.data-row').forEach(r => r.remove())
-
+  // Swap in new rows in table (store in document fragment)
+  tbody.querySelectorAll('tr.data-row').forEach(r => r.remove())  // Remove all currently rendered rows
   const fragment = document.createDocumentFragment()
-  for (let i = startIndex; i < endIndex; i++) {
+  for (let i = startIndex; i < endIndex; i++) {                   // Create each new rendered row
     const tr = document.createElement('tr')
     tr.className = i % 2 === 0 ? 'data-row' : 'data-row even'
     const row = allRows[i] as unknown[]
-    for (let j = 0; j < headers.length; j++) {
+    for (let j = 0; j < headers.length; j++) {                    // Add data for each column to row
       const td = document.createElement('td')
       td.textContent = String(row[j] ?? '')
       tr.appendChild(td)
@@ -153,6 +164,7 @@ function updateVisibleRows() {
 function setupColumnResize() {
   const table = document.getElementById('data-table')!
 
+  // Listen to any 'mousedown' event inside the table
   table.addEventListener('mousedown', (e: MouseEvent) => {
     const target = e.target as HTMLElement
     if (!target.classList.contains('resizer')) return
@@ -176,6 +188,9 @@ function setupColumnResize() {
       document.removeEventListener('mouseup', onUp)
     }
 
+    /* Event listeners for 'mousedown' and 'mouseup' on document
+     * Cursor is allowed to leave table while resizing
+    */
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
     e.preventDefault()
